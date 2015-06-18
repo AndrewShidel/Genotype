@@ -190,6 +190,10 @@ void RAM::execute()
 	}
 }
 
+RAM* RAM::fork() {
+	return new RAM(*this);
+}
+
 // Dump memory contents
 
 void RAM::dump()

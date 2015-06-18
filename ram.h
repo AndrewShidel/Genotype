@@ -26,6 +26,8 @@ public:
 //       and memory addresses and illegal opcodes should be provided.
 	void execute();
 
+	RAM* fork();
+
 // Dump memory contents
 	void dump();
 
