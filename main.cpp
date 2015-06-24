@@ -11,11 +11,14 @@ using namespace std;
 int main(int argc, char** argv)
 {
 	char* fName;
+	/*fName = argv[2];
+	for (int i=1; i<argc; i++) {
+		cout << argv[i] << "\n";
+	}*/
 	for (int i=1; i<argc; i++) {
 		cout << argv[i] << "\n";
 		if (strcmp(argv[i],"-f")==0) { //Instructions
-			i++;
-			fName = argv[i];
+			fName = argv[++i];
 		}
 	}
 	RAM M = RAM();

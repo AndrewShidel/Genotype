@@ -28,12 +28,14 @@ public:
 
 	RAM* fork();
 
+	std::string toString();
+
 // Dump memory contents
 	void dump();
 
 
 private:
-	std::vector<char> memory;
+	std::vector<int> memory;
 	std::vector<Instruction> program;
 	int pc;
 	int ac;

@@ -9,5 +9,4 @@ struct Instruction {
 	OPCODES opcode;
 	int operand;
 };
-
 #endif
