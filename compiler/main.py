@@ -9,6 +9,8 @@ symbols = {}
 staticMemory = memory.StaticMemory()
 symCount = 0
 
+alphabet = "abcdefghijklmnopqrstuvwxyz_"
+
 def main(argv=sys.argv):
   parser = argparse.ArgumentParser(description='Simple programming language')
   parser.add_argument('-f', dest='file', action='store', help='sum the integers (default: find the max)')
@@ -43,9 +45,10 @@ def compileExpression(expArr):
       symCount += 1
     else:
       if (expArr[i] not in symbols):
-        if (isinstance(expArr[i], (int, str) )):
+        if (isinstance(expArr[i], (int, str))):
           loc = staticMemory.malloc(1)
-          staticMemory.set(loc, expArr[i])
+          if (isinstance(expArr[i], int)):
+            staticMemory.set(loc, expArr[i])
           symbols[expArr[i]] = loc
         innerASM.append(None)
 
@@ -53,6 +56,8 @@ def compileExpression(expArr):
     asm += add(expArr[1], expArr[2])
   elif (expArr[0] == "-"):
     asm += sub(expArr[1], expArr[2])
+  elif (expArr[0] == "let"):
+    asm += let(expArr[1], expArr[2])
   return asm
 
 # Arithmetic Operations:
@@ -69,10 +74,11 @@ def multiply(num1, num2):
   return
 def divide(num1, num2):
   return
-
 # allocates memory for a symbol and returns instructions for placing a int into that memory
-def set(symbol, value):
-  return
+def let(symbol, value):
+  asm = "LDA " + str(symbols[value]) + ";\n"
+  asm += "STA " + str(symbols[symbol]) + ";\n"
+  return asm
 
 
 
@@ -81,6 +87,8 @@ Converts source code into a multi-dim array.
 Ex: "(set x 3)(set y (+ x 5))" -> [["set", "x", 3], ["set", "y", ["+", "x", 5]]]
 """
 def parse(f):
+  global alphabet
+
   result = "["
   paranCount = 0
   inFuncitonName = False
@@ -111,7 +119,7 @@ def parse(f):
         inFuncitonName = False
       result += ","
     elif (not c.isspace()):
-      if (not inSymbolName and not inFuncitonName):
+      if (not inSymbolName and not inFuncitonName and c.lower() in alphabet):
         inSymbolName = True
         result += "\""
       result += c
