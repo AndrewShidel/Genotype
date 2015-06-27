@@ -58,8 +58,6 @@ void RAM::init()
 // pc is set to 1 and ac is set to 0.  programSize is set to the number
 // of instructions read.
 void RAM::init(const char *file) {
-    // Initialize Memory
-    const int MAXSTRSIZE = 160;
     string str;
     int addr = 1;
     
@@ -131,6 +129,14 @@ void RAM::init(const char *file) {
             program[pc].opcode = JMN;
             mFile >> program[pc].operand; 
             program[pc].operand--;
+            getline(mFile, str, '\n');  pc++; }
+        else if (instName == "ALC") {
+            program[pc].opcode = ALC;
+            mFile >> program[pc].operand; 
+            getline(mFile, str, '\n');  pc++; }
+        else if (instName == "DLC") {
+            program[pc].opcode = DLC;
+            mFile >> program[pc].operand; 
             getline(mFile, str, '\n');  pc++; }
         else if (instName == "HLT") {
             program[pc].opcode = HLT;
@@ -210,6 +216,19 @@ void RAM::execute() {
                 else
                     pc++;
                 break;
+            case ALC:
+                x = program[pc].operand;
+                ac = memory.size();
+                memory.resize(memory.size()+x, 0);
+                pc++;
+                break;
+            case DLC: {
+                x = program[pc].operand;
+                vector<int>::iterator it = memory.begin();
+                memory.erase(it+ac, it+(ac+x));
+                pc++;
+                break;
+            }
             case HLT:
                 pc = size;
                 break;
