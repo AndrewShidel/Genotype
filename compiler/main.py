@@ -6,6 +6,7 @@ import json
 import memory
 
 symbols = {}
+lambdas = []
 staticMemory = memory.StaticMemory()
 symCount = 0
 
@@ -24,32 +25,46 @@ def main(argv=sys.argv):
 def compile(progArr):
   asm = ""
   for i in range(0, len(progArr)):
-    asm += compileExpression(progArr[i])
-  asm += "HLT ;\n&\n"
-  asm += staticMemory.toString()
+    asm += compileExpression(progArr[i], lineNum=(asm.count("\n")))
+  asm += "HLT ;\n"
+
+  memoryStr = staticMemory.toString()
+  for i in range(0, len(lambdas)):
+    lineNum = asm.count("\n")
+    asm = asm.replace("lambda__"+str(i), str(lineNum))
+    memoryStr = memoryStr.replace("lambda__"+str(i), str(lineNum))
+    asm += lambdas[i]
+  asm+="&\n"
+  asm += memoryStr
   print (asm)
 
 
-def compileExpression(expArr):
+def compileExpression(expArr, scope="", lineNum=0):
+  if (expArr[0] == "lambda"):
+    return processlambda(str(len(lambdas)), expArr[1], expArr[2])
+
   global symCount, staticMemory, symbols
   asm = ""
   innerASM = []
   args = []
   for i in range(1,len(expArr)):
     if (isinstance(expArr[i], list)):
-      asm+=compileExpression(expArr[i])
+      if (expArr[0] == "if"):
+        continue
+      asm+=compileExpression(expArr[i],lineNum=(lineNum+asm.count("\n")))
       loc = staticMemory.malloc(1)
       asm += "STA " + str(loc) + ";\n"
       expArr[i] = "__" + str(symCount)
       symbols[expArr[i]] = loc
       symCount += 1
     else:
-      if (expArr[i] not in symbols):
+      if (scope+str(expArr[i]) not in symbols):
         if (isinstance(expArr[i], (int, str))):
           loc = staticMemory.malloc(1)
           if (isinstance(expArr[i], int)):
             staticMemory.set(loc, expArr[i])
-          symbols[expArr[i]] = loc
+          symbols[scope+str(expArr[i])] = loc
+        expArr[i] = scope+str(expArr[i])
         innerASM.append(None)
 
   if (expArr[0] == "+"):
@@ -58,7 +73,55 @@ def compileExpression(expArr):
     asm += sub(expArr[1], expArr[2])
   elif (expArr[0] == "let"):
     asm += let(expArr[1], expArr[2])
+  elif (expArr[0] == "if"):
+    asm += ifBlock(expArr[1], expArr[2], expArr[3], (lineNum+asm.count("\n")))
+  elif (expArr[0] in symbols):
+    asm += gotoLambda(expArr[0], expArr[1:])
+
   return asm
+
+def processlambda(name, args, body):
+  global symbols, lambdas
+  asm = ""
+  for i in range(0, len(args)):
+    loc = staticMemory.malloc(1)
+    symbol = name + "__" + args[i]
+    symbols[symbol] = loc
+  for i in range(0, len(body)):
+    asm += compileExpression(body[i], name + "__")
+  lambdas.append(asm)
+  loc = staticMemory.malloc(1)
+  staticMemory.set(loc, "lambda__"+name)
+  return "LDA " + str(loc) + ";\n"
+
+def gotoLambda(symName, args):
+  return "JMP " + str(symbols[symName]) + ";\n"
+
+def ifBlock(cond, trueBlock, falseBlock, lineNum):
+  print("Line nums = " + str(lineNum))
+  result = ""
+  if (isinstance(cond, list)):
+    result = compileExpression(cond, lineNum=(lineNum+result.count("\n")))
+  else:
+    result = "LDA " + str(symbols[cond]) + ";\n"
+
+  if (isinstance(trueBlock, list)):
+    trueBlock = compileExpression(trueBlock)
+  else:
+    trueBlock = "LDA " + str(symbols[trueBlock]) + ";\n"
+
+  if (isinstance(falseBlock, list)):
+    falseBlock = compileExpression(falseBlock)
+  else:
+    falseBlock = "LDA " + str(symbols[falseBlock]) + ";\n"
+
+  offset = lineNum+result.count("\n")+trueBlock.count("\n")+falseBlock.count("\n")+3
+  trueBlock += "JMP " + str(offset) + ";\n"
+
+  result += "JMZ " + str(lineNum+result.count("\n")+trueBlock.count("\n")+2) + ";\n"
+  result += trueBlock
+  result += falseBlock
+  return result
 
 # Arithmetic Operations:
 # num1, num2 - memory locations
@@ -100,6 +163,8 @@ def parse(f):
       break
     if (c=='('):
       paranCount+=1
+      if (result[(len(result)-2):] == "[\""):
+        result=result[0:(len(result)-1)]
       result += "[\""
       inFuncitonName = True
     elif (c==')'):
@@ -125,6 +190,7 @@ def parse(f):
       result += c
   result = result[:len(result)-1]
   result += "]"
+  print (result)
   return json.loads(result)
 
 if __name__ == "__main__":
