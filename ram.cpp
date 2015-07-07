@@ -72,6 +72,7 @@ void RAM::init(const char *file) {
     // Initialize program
     string instName;
     bool inMemory = false;
+    bool inStr = false;
     pc = 0;
     int line = 0;
     cout << "reading file: " << file << "\n";
@@ -84,8 +85,21 @@ void RAM::init(const char *file) {
         line++;
         //instName = str;
         if (inMemory) {
-            memory.push_back(instName[0]-'0');
-            getline(mFile, str, '\n');  // flush line (possibly contains comment)
+            if (instName[0]=='\"' || instName[0]=='\'') {
+                getline(mFile, str, '\n');
+                instName += str;
+                for (int i=1; i<instName.length()-1; i++) {
+                    if (instName[i]=='\"' || instName[i]=='\'') {
+                        break;
+                    }
+                    memory.push_back(instName[i]);
+                    addr++;
+                }
+                memory.push_back('\0');
+            }else{
+                memory.push_back(instName[0]-'0');
+                getline(mFile, str, '\n');  // flush line (possibly contains comment)
+            }
             addr++;
         }else if (instName[0] == ';') {
             getline(mFile, str, '\n'); } // flush to end of line
@@ -137,6 +151,10 @@ void RAM::init(const char *file) {
         else if (instName == "DLC") {
             program[pc].opcode = DLC;
             mFile >> program[pc].operand; 
+            getline(mFile, str, '\n');  pc++; }
+        else if (instName == "SYS") {
+            program[pc].opcode = SYS;
+            mFile >> program[pc].operand;
             getline(mFile, str, '\n');  pc++; }
         else if (instName == "HLT") {
             program[pc].opcode = HLT;
@@ -229,11 +247,29 @@ void RAM::execute() {
                 pc++;
                 break;
             }
+            case SYS: {
+                x = program[pc].operand;
+                int mode = memory[x];
+                if (mode==0) { //Print string
+                    printString(x+1);
+                }
+                pc++;
+                break;
+            }
             case HLT:
                 pc = size;
                 break;
         }
     }
+}
+
+void RAM::printString(int memBase) {
+    char c = memory[memBase];
+    while(c!='\0') {
+        cout << c;
+        c = memory[++memBase];
+    }
+    cout << '\n';
 }
 
 RAM* RAM::fork() {
@@ -287,6 +323,15 @@ std::string opCodeToString(OPCODES code) {
             break;
         case JMN:
             return "JMN";
+            break;
+        case ALC:
+            return "ALC";
+            break;
+        case DLC:
+            return "DLC";
+            break;
+        case SYS:
+            return "SYS";
             break;
         case HLT:
             return "HLT";

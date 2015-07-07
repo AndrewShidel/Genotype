@@ -37,6 +37,7 @@ public:
 private:
 	std::vector<int> memory;
 	std::vector<Instruction> program;
+	void printString(int memBase);
 	int pc;
 	int ac;
 };
