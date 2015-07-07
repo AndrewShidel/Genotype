@@ -252,6 +252,8 @@ void RAM::execute() {
                 int mode = memory[x];
                 if (mode==0) { //Print string
                     printString(x+1);
+                }else if (mode==1) {
+                    cout << memory[x+1];
                 }
                 pc++;
                 break;
