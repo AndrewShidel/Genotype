@@ -258,16 +258,19 @@ void RAM::execute() {
                     pc = returnTo+1;
                 }
                 break;
-            case ALC:
+            case ALC: //Push
                 x = program[pc].operand;
                 ac = memory.size();
-                memory.resize(memory.size()+x, 0);
+                //memory.resize(memory.size()+x, 0);
+                memory.push_back(memory[x]);
                 pc++;
                 break;
-            case DLC: {
+            case DLC: { //Pop
                 x = program[pc].operand;
-                vector<int>::iterator it = memory.begin();
-                memory.erase(it+ac, it+(ac+x));
+                //vector<int>::iterator itEnd = memory.end();
+                //memory.erase(itEnd+x, itEnd);
+                memory[x] = memory.back();
+                memory.pop_back();
                 pc++;
                 break;
             }
