@@ -4,6 +4,7 @@ import sys
 import argparse
 import json
 import memory
+import re
 
 symbols = {}
 lambdas = {}
@@ -33,9 +34,25 @@ def compile(progArr):
     asm += lambdas[i]["body"]
     asm = asm.replace(lambdas[i]["namespace"], lineCount)
     memoryStr = memoryStr.replace(lambdas[i]["namespace"], lineCount)
+
+  it = re.finditer("\.relative_", asm)
+  offset = 0
+  for m in it:
+    index = m.end()-offset
+    c = asm[index]
+    value = ''
+    while c.isdigit():
+      value += c
+      index += 1
+      c = asm[index]
+    valueInt = int(value)
+    asm = asm.replace(".relative_"+value, str(valueInt+asm[:index].count("\n")))
+    offset += 10
+
   asm+="&\n"
   asm += memoryStr
   print (asm)
+
 
 
 def compileExpression(expArr, scope="", lineNum=0, quoted=False):
@@ -96,6 +113,8 @@ def compileExpression(expArr, scope="", lineNum=0, quoted=False):
     asm += add(expArr[1], expArr[2])
   elif (expArr[0] == "-"):
     asm += sub(expArr[1], expArr[2])
+  elif (expArr[0] == "="):
+    asm += equals(expArr[1], expArr[2])
   elif (expArr[0] == "let"):
     asm += let(expArr[1], expArr[2])
   elif (expArr[0] == "if"):
@@ -238,6 +257,14 @@ def multiply(num1, num2):
   return
 def divide(num1, num2):
   return
+
+def equals(num1, num2):
+  result = sub(num1, num2)
+  result += "JMZ .relative_4;\n"
+  result += "LDA 0;\nJMP .relative_3;\n"
+  result += "LDA 1;\n"
+  return result
+
 
 def printInt(num):
   result = "LDA 1;\n"
