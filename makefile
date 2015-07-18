@@ -2,9 +2,9 @@ debugBuild:
 	g++ -ggdb -c -o bin/ram.o ram.cpp
 	g++ -ggdb main.cpp bin/ram.o
 debug: debugBuild
-	ddd a.out -f test.asm
+	ddd a.out -f ./twoPlusTwo.asm
 build:
-	g++ -c -o bin/ram.o ram.cpp
-	g++ main.cpp bin/ram.o
+	g++ -c -o VM/bin/ram.o VM/ram.cpp
+	g++ -o VM/main.out main.cpp VM/bin/ram.o
 run: build
-	./a.out -f test.asm
+	./VM/main.out -f VM/test.asm
