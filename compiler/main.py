@@ -33,17 +33,6 @@ def compile(progArr):
     asm += lambdas[i]["body"]
     asm = asm.replace(lambdas[i]["namespace"], lineCount)
     memoryStr = memoryStr.replace(lambdas[i]["namespace"], lineCount)
-    """
-    lineNum = asm.count("\n")+lambdas[i]["prepend"].count("\n")+1
-    asm = asm.replace("lambda__"+str(i), str(lineNum))
-
-    jmp = "JAL " + str(lineNum) + ";\n"
-    print("Lambda replace: " + jmp)
-    asm = asm.replace(jmp, lambdas[i]["prepend"]+jmp)
-
-    memoryStr = memoryStr.replace("lambda__"+str(i), str(lineNum))
-    asm += lambdas[i]["asm"]
-    """
   asm+="&\n"
   asm += memoryStr
   print (asm)
@@ -58,14 +47,17 @@ def compileExpression(expArr, scope="", lineNum=0, quoted=False):
   asm = ""
   innerASM = []
   args = []
-  for i in range(1,len(expArr)):
+
+  start = 1
+  if ((scope + expArr[0]) in symbols):
+    start = 0
+  for i in range(start,len(expArr)):
     if (isinstance(expArr[i], list)): # Compile a sub-expression
       if (expArr[0] == "if"):
         continue
 
       result = ""      
       if (expArr[0] == "let" and isinstance(expArr[1], list)):
-        #result=compileExpression(expArr[1], scope, lineNum=(lineNum+asm.count("\n")), quoted=True)
         break
       else:
         result=compileExpression(expArr[i], scope, lineNum=(lineNum+asm.count("\n")))
@@ -84,9 +76,12 @@ def compileExpression(expArr, scope="", lineNum=0, quoted=False):
     else: # Compile a symbol
       argName = scope+str(expArr[i])
       unprocessedArgName = expArr[i]
-      expArr[i] = argName
-      if (isinstance(expArr[i], int)):
+      print (expArr[i])
+      if (isinstance(unprocessedArgName, int)):
         argName = str(expArr[i])
+        expArr[i] = str(expArr[i])
+      else:
+        expArr[i] = argName
       if (argName not in symbols):
         loc = staticMemory.malloc(1)
         if (isinstance(unprocessedArgName, int)):
@@ -107,16 +102,11 @@ def compileExpression(expArr, scope="", lineNum=0, quoted=False):
     asm += ifBlock(expArr[1], expArr[2], expArr[3], (lineNum+asm.count("\n")))
   elif (expArr[0] == "print"):
     asm += printInt(expArr[1])
-  elif (expArr[0] in lambdas):
+  elif (expArr[0] in symbols):
     asm += goToFunction(expArr[0], expArr[1:])
 
   return asm
 
-# TODO: Arg names should not be processed by the expression compiler
-#       All symbols defined in lambda should be namespaced.
-#       Take all args from the stack and save them as locals.
-#       Before recursive call, move local symbols to the stack.
-#       After recursive call, pop local symbols from the stack.
 def processFunction(name, args, body):
   namespace = name + "__"
 
@@ -129,6 +119,7 @@ def processFunction(name, args, body):
   
   for i in range(0, len(args)):
     args[i] = namespace + args[i]
+    symbols[args[i]] = 3+i;
     #symbols[args[i]] = staticMemory.malloc(1)
   
   lambdas[name]["args"] = args;
@@ -144,16 +135,25 @@ def processFunction(name, args, body):
 
   return ("LDA " + namespace + ";\n", namespace)
 
-
-def goToFunction(symName, args):
+def goToFunction(symName, args, inFunction=False):
   asm = ""
-  functionArgs = lambdas[symName]["args"]
-  for i in range(0, len(functionArgs)):
-    asm += "LDA " + str(symbols[args[i]]) + ";\n"
-    asm += "STA " + str(symbols[functionArgs[i]]) + ";\n"
-  asm += "JAL " + str(symbols[symName]) + ";\n"
-  return asm
+  loc = symbols[symName]
+  if (symbols[symName] <= 6):
+    loc = staticMemory.malloc(1)
+    asm += "LDA " + str(symbols[symName]) + ";\n"
+    asm += "STA " + str(loc) + ";\n"
 
+  for i in range(0, len(args)):
+    
+    asm += "ALC " + str(3+i) + ";\n"
+    asm += "LDA " + str(symbols[args[i]]) + ";\n";
+    asm += "STA " + str(i+3) + ";\n"
+
+  asm += "JAL " + str(loc) + ";\n"
+
+  for i in range(0, len(args)):
+    asm += "DLC " + str(3+i) + ";\n"
+  return asm
 
 def processlambda(name, args, body):
   global symbols, lambdas
@@ -250,10 +250,11 @@ def let(symbol, value):
     processFunction(symbol[0], symbol[1:], value)
     return ""
 
+  """
   if (value in lambdas):
     symbols[symbol] = symbols[value]
     return ""
-
+  """
 
   asm = "LDA " + str(symbols[value]) + ";\n"
   asm += "STA " + str(symbols[symbol]) + ";\n"

@@ -2,7 +2,7 @@
 #Return Address = 0; Can either be 4 byte data or 4 byte pointer
 #Arguments = 1,2,3; 
 class StaticMemory:
-	mem = [0, 1, -1] # Reserve space for the stack pointer, and const 1/-1
+	mem = [0, 1, -1, 0, 0, 0] # Reserve space for the stack pointer, const 1/-1, and funciton args
 	def malloc(self, size):
 		baseIndex = len(self.mem);
 		for i in range(0,size):
