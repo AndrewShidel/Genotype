@@ -6,7 +6,7 @@ import json
 import memory
 
 symbols = {}
-lambdas = []
+lambdas = {}
 staticMemory = memory.StaticMemory()
 symCount = 0
 
@@ -17,7 +17,6 @@ def main(argv=sys.argv):
   parser.add_argument('-f', dest='file', action='store', help='sum the integers (default: find the max)')
 
   args = parser.parse_args()
-  print (args.file)
   f = open(args.file, 'r')
   progArr = parse(f)
   compile(progArr)
@@ -29,43 +28,74 @@ def compile(progArr):
   asm += "HLT ;\n"
 
   memoryStr = staticMemory.toString()
-  for i in range(0, len(lambdas)):
-    lineNum = asm.count("\n")
+  for i in lambdas:
+    lineCount = str(asm.count("\n")+1)
+    asm += lambdas[i]["body"]
+    asm = asm.replace(lambdas[i]["namespace"], lineCount)
+    memoryStr = memoryStr.replace(lambdas[i]["namespace"], lineCount)
+    """
+    lineNum = asm.count("\n")+lambdas[i]["prepend"].count("\n")+1
     asm = asm.replace("lambda__"+str(i), str(lineNum))
+
+    jmp = "JAL " + str(lineNum) + ";\n"
+    print("Lambda replace: " + jmp)
+    asm = asm.replace(jmp, lambdas[i]["prepend"]+jmp)
+
     memoryStr = memoryStr.replace("lambda__"+str(i), str(lineNum))
-    asm += lambdas[i]
+    asm += lambdas[i]["asm"]
+    """
   asm+="&\n"
   asm += memoryStr
   print (asm)
 
 
-def compileExpression(expArr, scope="", lineNum=0):
+def compileExpression(expArr, scope="", lineNum=0, quoted=False):
+  global symCount, staticMemory, symbols, lambdas
+
   if (expArr[0] == "lambda"):
     return processlambda(str(len(lambdas)), expArr[1], expArr[2])
 
-  global symCount, staticMemory, symbols
   asm = ""
   innerASM = []
   args = []
   for i in range(1,len(expArr)):
-    if (isinstance(expArr[i], list)):
+    if (isinstance(expArr[i], list)): # Compile a sub-expression
       if (expArr[0] == "if"):
         continue
-      asm+=compileExpression(expArr[i],lineNum=(lineNum+asm.count("\n")))
+
+      result = ""      
+      if (expArr[0] == "let" and isinstance(expArr[1], list)):
+        #result=compileExpression(expArr[1], scope, lineNum=(lineNum+asm.count("\n")), quoted=True)
+        break
+      else:
+        result=compileExpression(expArr[i], scope, lineNum=(lineNum+asm.count("\n")))
+
       loc = staticMemory.malloc(1)
-      asm += "STA " + str(loc) + ";\n"
+
+      if (expArr[i][0]=="lambda"):
+        staticMemory.set(loc, result[1])
+        symbols[expArr[1]] = result[1]
+      else:
+        asm += result
+        asm += "STA " + str(loc) + ";\n"
       expArr[i] = "__" + str(symCount)
       symbols[expArr[i]] = loc
       symCount += 1
-    else:
-      if (scope+str(expArr[i]) not in symbols):
-        if (isinstance(expArr[i], (int, str))):
-          loc = staticMemory.malloc(1)
-          if (isinstance(expArr[i], int)):
-            staticMemory.set(loc, expArr[i])
-          symbols[scope+str(expArr[i])] = loc
-        expArr[i] = scope+str(expArr[i])
+    else: # Compile a symbol
+      argName = scope+str(expArr[i])
+      unprocessedArgName = expArr[i]
+      expArr[i] = argName
+      if (isinstance(expArr[i], int)):
+        argName = str(expArr[i])
+      if (argName not in symbols):
+        loc = staticMemory.malloc(1)
+        if (isinstance(unprocessedArgName, int)):
+          staticMemory.set(loc, expArr[i])
+        symbols[argName] = loc
         innerASM.append(None)
+
+  if (quoted):
+    return ""
 
   if (expArr[0] == "+"):
     asm += add(expArr[1], expArr[2])
@@ -75,30 +105,101 @@ def compileExpression(expArr, scope="", lineNum=0):
     asm += let(expArr[1], expArr[2])
   elif (expArr[0] == "if"):
     asm += ifBlock(expArr[1], expArr[2], expArr[3], (lineNum+asm.count("\n")))
-  elif (expArr[0] in symbols):
-    asm += gotoLambda(expArr[0], expArr[1:])
+  elif (expArr[0] == "print"):
+    asm += printInt(expArr[1])
+  elif (expArr[0] in lambdas):
+    asm += goToFunction(expArr[0], expArr[1:])
 
   return asm
+
+# TODO: Arg names should not be processed by the expression compiler
+#       All symbols defined in lambda should be namespaced.
+#       Take all args from the stack and save them as locals.
+#       Before recursive call, move local symbols to the stack.
+#       After recursive call, pop local symbols from the stack.
+def processFunction(name, args, body):
+  namespace = name + "__"
+
+  symbols[name] = staticMemory.malloc(1)
+
+  lambdas[name] = {}
+
+  lambdas[name]["namespace"] = namespace
+  staticMemory.set(symbols[name], namespace)
+  
+  for i in range(0, len(args)):
+    args[i] = namespace + args[i]
+    #symbols[args[i]] = staticMemory.malloc(1)
+  
+  lambdas[name]["args"] = args;
+  lambdas[name]["argCount"] = len(args)
+
+  bodyStr = ""
+  for i in range(0, len(body)):
+    bodyStr += compileExpression(body[i], namespace)
+
+  bodyStr += "JAL -1;\n"
+  lambdas[name]["body"] = bodyStr
+
+
+  return ("LDA " + namespace + ";\n", namespace)
+
+
+def goToFunction(symName, args):
+  asm = ""
+  functionArgs = lambdas[symName]["args"]
+  for i in range(0, len(functionArgs)):
+    asm += "LDA " + str(symbols[args[i]]) + ";\n"
+    asm += "STA " + str(symbols[functionArgs[i]]) + ";\n"
+  asm += "JAL " + str(symbols[symName]) + ";\n"
+  return asm
+
 
 def processlambda(name, args, body):
   global symbols, lambdas
   asm = ""
+
+  recurseSave = "ALC " + str(len(args)) + ";\n" # Grow the stack
+  recurseLoad = ""
   for i in range(0, len(args)):
     loc = staticMemory.malloc(1)
-    symbol = name + "__" + args[i]
+    symbol = name + "__" + str(i)
     symbols[symbol] = loc
+    
+    recurseSave += "LDA " + str(loc) + ";\n" # Load the argument from memory
+    recurseSave += "STI 0;\n" # Store the argument on the stack
+    recurseSave += incrementStack()
+
+    recurseLoad += "LDI 0;\n" # Load item from top of stack
+    recurseLoad += "STA " + str(loc) + ";\n" # Store item in argument
+    recurseLoad += decrementStack()
+
+  recurseLoad += "DLC " + str(len(args)) + ";\n" 
+  recurseLoad += "JAL 0;\n" # return
+
   for i in range(0, len(body)):
-    asm += compileExpression(body[i], name + "__")
-  lambdas.append(asm)
+    asm += compileExpression(body[i], str(name) + "__")
+
+  asm += recurseLoad
+
+  #asm.replace("JMP", recurseSave + "JMP")
+  #asm.replace("JMP")
+  lambdas.append({'asm': asm, 'prepend': recurseSave, 'postpend': recurseLoad})
   loc = staticMemory.malloc(1)
   staticMemory.set(loc, "lambda__"+name)
-  return "LDA " + str(loc) + ";\n"
+
+  return loc#"LDA " + str(loc) + ";\n"
 
 def gotoLambda(symName, args):
-  return "JMP " + str(symbols[symName]) + ";\n"
+  prefix = staticMemory.get(symbols[symName]).split("__")[1] + "__"
+  asm = ""
+  for i in range(0, len(args)):
+    asm += "LDA " + str(symbols[str(args[i])]) + ";\n" # Load the symbol into PC
+    asm += "STA " + str(symbols[prefix + str(i)]) + ";\n" # Store the symbol as the argument
+  return asm + "JAL " + staticMemory.get(symbols[symName]) + ";\n"
+
 
 def ifBlock(cond, trueBlock, falseBlock, lineNum):
-  print("Line nums = " + str(lineNum))
   result = ""
   if (isinstance(cond, list)):
     result = compileExpression(cond, lineNum=(lineNum+result.count("\n")))
@@ -137,12 +238,38 @@ def multiply(num1, num2):
   return
 def divide(num1, num2):
   return
+
+def printInt(num):
+  result = "LDA 1;\n"
+  result += "SYS " + str(symbols[num]) + ";\n"
+  return result
+
 # allocates memory for a symbol and returns instructions for placing a int into that memory
 def let(symbol, value):
+  if (isinstance(symbol, list)):
+    processFunction(symbol[0], symbol[1:], value)
+    return ""
+
+  if (value in lambdas):
+    symbols[symbol] = symbols[value]
+    return ""
+
+
   asm = "LDA " + str(symbols[value]) + ";\n"
   asm += "STA " + str(symbols[symbol]) + ";\n"
   return asm
 
+def incrementStack():
+  result = "LDA 0;\n"
+  result += "ADD 1;\n"
+  result += "STA 0;\n"
+  return result
+
+def decrementStack():
+  result = "LDA 0;\n"
+  result += "ADD 2;\n"
+  result += "STA 0;\n"
+  return result
 
 
 """
@@ -159,7 +286,6 @@ def parse(f):
   while f:
     c = f.read(1)
     if not c:
-      print ("End of file")
       break
     if (c=='('):
       paranCount+=1
@@ -190,7 +316,6 @@ def parse(f):
       result += c
   result = result[:len(result)-1]
   result += "]"
-  print (result)
   return json.loads(result)
 
 if __name__ == "__main__":

@@ -7,6 +7,7 @@
 #include <string>
 #include <sstream>
 #include <vector>
+#include <stack>
 #include "ram.h"
 #include "inst.h"
 using namespace std;
@@ -75,13 +76,11 @@ void RAM::init(const char *file) {
     bool inStr = false;
     pc = 0;
     int line = 0;
-    cout << "reading file: " << file << "\n";
     while (mFile >> instName) {
         if (!inMemory) {
             program.push_back(*((Instruction*)malloc(sizeof(Instruction))));
         }
         //instName = str;
-        cout << "\nin\n";
         line++;
         //instName = str;
         if (inMemory) {
@@ -97,7 +96,18 @@ void RAM::init(const char *file) {
                 }
                 memory.push_back('\0');
             }else{
-                memory.push_back(instName[0]-'0');
+                int value = 0;
+                int count = 1;
+                for (int i=instName.length()-1; i>=0; i--) {
+                    if (instName[i]=='-') {
+                        value *= -1;
+                        break;
+                    } else {
+                        value += count*(instName[i]-'0');
+                        count *= 10;
+                    }
+                }
+                memory.push_back(value);
                 getline(mFile, str, '\n');  // flush line (possibly contains comment)
             }
             addr++;
@@ -144,6 +154,10 @@ void RAM::init(const char *file) {
             mFile >> program[pc].operand; 
             program[pc].operand--;
             getline(mFile, str, '\n');  pc++; }
+        else if (instName == "JAL") {
+            program[pc].opcode = JAL;
+            mFile >> program[pc].operand;
+            getline(mFile, str, '\n');  pc++; }
         else if (instName == "ALC") {
             program[pc].opcode = ALC;
             mFile >> program[pc].operand; 
@@ -175,9 +189,9 @@ void RAM::execute() {
     int x;
     OPCODES op;
     int size = program.size();
+    stack<int> callStack = stack<int>();
     while (pc < size) {
         op = program[pc].opcode;
-        cout << pc << "\t:\t" << opCodeToString(op) << " " << program[pc].operand << "\n";
         switch (op) {
             case LDA:
                 x = program[pc].operand;
@@ -234,6 +248,16 @@ void RAM::execute() {
                 else
                     pc++;
                 break;
+            case JAL:
+                x = program[pc].operand;
+                if (x>0) {
+                    callStack.push(pc);
+                    pc = memory[x]-1;
+                }else {
+                    int returnTo = callStack.top(); callStack.pop();
+                    pc = returnTo+1;
+                }
+                break;
             case ALC:
                 x = program[pc].operand;
                 ac = memory.size();
@@ -249,11 +273,11 @@ void RAM::execute() {
             }
             case SYS: {
                 x = program[pc].operand;
-                int mode = memory[x];
+                int mode = ac;
                 if (mode==0) { //Print string
-                    printString(x+1);
+                    printString(x);
                 }else if (mode==1) {
-                    cout << memory[x+1];
+                    cout << memory[x] << "\n";
                 }
                 pc++;
                 break;
@@ -281,7 +305,7 @@ RAM* RAM::fork() {
 string RAM::toString() {
     ostringstream oss;
     for (int i=0; i<program.size(); i++) {
-        oss << program[i].opcode << " " << program[i].operand << ";\n";
+        oss << opCodeToString(program[i].opcode) << " " << program[i].operand << ";\n";
     }
     oss << "&\n";
     for (int i=0; i<memory.size(); i++) {
@@ -325,6 +349,9 @@ std::string opCodeToString(OPCODES code) {
             break;
         case JMN:
             return "JMN";
+            break;
+        case JAL:
+            return "JAL";
             break;
         case ALC:
             return "ALC";

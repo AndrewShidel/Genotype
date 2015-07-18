@@ -2,7 +2,7 @@
 #Return Address = 0; Can either be 4 byte data or 4 byte pointer
 #Arguments = 1,2,3; 
 class StaticMemory:
-	mem = []
+	mem = [0, 1, -1] # Reserve space for the stack pointer, and const 1/-1
 	def malloc(self, size):
 		baseIndex = len(self.mem);
 		for i in range(0,size):
@@ -11,6 +11,9 @@ class StaticMemory:
 	
 	def set(self, base, value):
 		self.mem[base] = value;	
+
+	def get(self, base):
+		return self.mem[base]
 	
 	def toString(self):
 		res = ""

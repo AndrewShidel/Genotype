@@ -16,7 +16,6 @@ int main(int argc, char** argv)
 		cout << argv[i] << "\n";
 	}*/
 	for (int i=1; i<argc; i++) {
-		cout << argv[i] << "\n";
 		if (strcmp(argv[i],"-f")==0) { //Instructions
 			fName = argv[++i];
 		}
