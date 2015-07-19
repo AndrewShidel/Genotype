@@ -120,6 +120,10 @@ def compileExpression(expArr, scope="", lineNum=0, quoted=False):
     asm += lessThan(expArr[1], expArr[2], len(expArr[0])>1 and expArr[0][1]=="=")
   elif (expArr[0][0] == ">"):
     asm += greaterThan(expArr[1], expArr[2], len(expArr[0])>1 and expArr[0][1]=="=")
+  elif (expArr[0] == "and" or expArr[0] == "&&"):
+    asm += andExp(expArr[1], expArr[2])
+  elif (expArr[0] == "or" or expArr[0] == "||"):
+    asm += orExp(expArr[1], expArr[2])
   elif (expArr[0] == "let"):
     asm += let(expArr[1], expArr[2])
   elif (expArr[0] == "if"):
@@ -293,6 +297,23 @@ def negate(exp):
   result += "JMZ .relative_4;\n"
   result += "LDA 0;\nJMP .relative_3;\n"
   result += "LDA 1;\n"
+  return result
+
+def orExp(exp1, exp2):
+  result = "LDA " + str(symbols[exp1]) + ";\n"
+  result += "ADD " + str(symbols[exp2]) + ";\n"
+  result += "JMZ .relative_4;\n"
+  result += "LDA 1;\nJMP .relative_3;\n"
+  result += "LDA 0;\n"
+  return result
+
+def andExp(exp1, exp2):
+  result = "LDA " + str(symbols[exp1]) + ";\n"
+  result += "ADD " + str(symbols[exp2]) + ";\n" # pc=exp1+exp2
+  result += "ADD 2;\nADD 2;\n" # pc-=2
+  result += "JMZ .relative_4;\n" # if (pc!=0)
+  result += "LDA 0;\nJMP .relative_3;\n" # return false
+  result += "LDA 1;\n" # return true
   return result
 
 
