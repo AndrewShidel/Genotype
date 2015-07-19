@@ -1,6 +1,7 @@
 // Definition of RAM (random access machine) class
 
 #include <vector>
+#include <string>
 #include "inst.h"
 
 class RAM {
@@ -8,6 +9,8 @@ public:
 	// Constructors
 	RAM();
 	RAM(int pSize, int mSize);
+
+	std::string toC();
 
 // Initialize RAM with hardwired program and memory
 // pc is set to 1 and ac is set to 0

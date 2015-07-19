@@ -25,6 +25,114 @@ RAM::RAM()
      }*/
 }
 
+string RAM::toC() {
+    ostringstream s;
+    s << "#include <stdio.h>\n";
+    s << "int main() {\n";
+    s << "int m[" << memory.size() << "] = {";
+    for (int i=0; i<memory.size(); i++) {
+        s << memory[i] << ((i==memory.size()-1)?"":", ");
+    }
+    s << "};\n";
+    s << "int ac=0;\n";
+
+    vector<int> labels = vector<int>();
+    for (int i=0; i<program.size(); i++) {
+        if (program[i].opcode == JMP || program[i].opcode == JMN || program[i].opcode == JMZ) {
+            labels.push_back(program[i].operand);
+        }
+    }
+
+
+    for (int i=0; i<program.size(); i++) {
+        int x = 0;
+        if (binary_search (labels.begin(), labels.end(), i)) {
+            s << "label" << i << ":\n";
+        }
+        switch (program[i].opcode) {
+            case LDA:
+                x = program[i].operand;
+                s << "ac=m[" << x << "];\n";
+                break;
+                
+            case LDI:
+                x = program[i].operand;
+                s << "ac=m[m[" << x << "]];\n";
+                break;
+                
+            case STA:
+                x = program[i].operand;
+                s << "m[" << x << "]=ac;\n";
+                break;
+                
+            case STI:
+                x = program[i].operand;
+                s << "m[m[" << x << "]]=pc;\n";
+                break;
+                
+            case ADD:
+                x = program[i].operand;
+                s << "ac += m[" << x << "];\n";
+                break;
+                
+            case SUB:
+                x = program[i].operand;
+                s << "ac -= m[" << x << "];\n";
+                break;
+                
+            case JMP:
+                x = program[i].operand;
+                s << "goto label" << x << ";";
+                break;
+
+            case JMZ:
+                x = program[i].operand;
+                s << "if (ac==0) {goto label" << x << ";}\n";
+                break;
+            case JMN:
+                x = program[i].operand;
+                s << "if (ac < 0) {goto label" << x << ";}\n";
+                break;
+            case JAL:
+                x = program[i].operand;
+                /*if (x>0) {
+                    callStack.push(pc);
+                    pc = memory[x]-1;
+                }else {
+                    int returnTo = callStack.top(); callStack.pop();
+                    pc = returnTo+1;
+                }*/
+                break;
+            case ALC: //Push
+                x = program[i].operand;
+                ac = memory.size();
+                //memory.resize(memory.size()+x, 0);
+                memory.push_back(memory[x]);
+                pc++;
+                break;
+            case DLC: { //Pop
+                x = program[i].operand;
+                //vector<int>::iterator itEnd = memory.end();
+                //memory.erase(itEnd+x, itEnd);
+                memory[x] = memory.back();
+                memory.pop_back();
+                pc++;
+                break;
+            }
+            case SYS: {
+                x = program[i].operand;
+
+                s << "if (ac==1){printf(\"%d\\n\", m[" << x << "]);}\n";
+                break;
+            }
+            case HLT:
+                s << "return 0;\n";
+                break;
+        }
+    }
+    s << "}";
+}
+
 // Initialize RAM with hardwired program and memory
 // pc is set to 1 and ac is set to 0.
 void RAM::init()
@@ -178,6 +286,7 @@ void RAM::init(const char *file) {
     }
     pc = 0;
     ac = 0;
+    cout << toC();
 }
 
 // simulate execution of RAM with given program and memory configuration.
@@ -233,7 +342,7 @@ void RAM::execute() {
                 x = program[pc].operand;
                 pc = x;
                 break;
-                
+
             case JMZ:
                 x = program[pc].operand;
                 if (ac == 0)
