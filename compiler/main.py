@@ -35,10 +35,9 @@ def compile(progArr):
     asm = asm.replace(lambdas[i]["namespace"], lineCount)
     memoryStr = memoryStr.replace(lambdas[i]["namespace"], lineCount)
 
-  it = re.finditer("\.relative_", asm)
-  offset = 0
-  for m in it:
-    index = m.end()-offset
+  it = re.search("\.relative_", asm)
+  while it != None:
+    index = it.end()
     c = asm[index]
     value = ''
     while c.isdigit():
@@ -46,8 +45,9 @@ def compile(progArr):
       index += 1
       c = asm[index]
     valueInt = int(value)
-    asm = asm.replace(".relative_"+value, str(valueInt+asm[:index].count("\n")))
-    offset += 10
+    newVal = str(valueInt+asm[:index].count("\n"))
+    asm = asm.replace(".relative_"+value, newVal, 1)
+    it = re.search("\.relative_", asm)
 
   asm+="&\n"
   asm += memoryStr
@@ -93,7 +93,6 @@ def compileExpression(expArr, scope="", lineNum=0, quoted=False):
     else: # Compile a symbol
       argName = scope+str(expArr[i])
       unprocessedArgName = expArr[i]
-      print (expArr[i])
       if (isinstance(unprocessedArgName, int)):
         argName = str(expArr[i])
         expArr[i] = str(expArr[i])
@@ -115,6 +114,8 @@ def compileExpression(expArr, scope="", lineNum=0, quoted=False):
     asm += sub(expArr[1], expArr[2])
   elif (expArr[0] == "="):
     asm += equals(expArr[1], expArr[2])
+  elif (expArr[0] == "!" or expArr[0] == "not"):
+    asm += negate(expArr[1])
   elif (expArr[0] == "let"):
     asm += let(expArr[1], expArr[2])
   elif (expArr[0] == "if"):
@@ -260,6 +261,13 @@ def divide(num1, num2):
 
 def equals(num1, num2):
   result = sub(num1, num2)
+  result += "JMZ .relative_4;\n"
+  result += "LDA 0;\nJMP .relative_3;\n"
+  result += "LDA 1;\n"
+  return result
+
+def negate(exp):
+  result = "LDA " + str(symbols[exp]) + ";\n"
   result += "JMZ .relative_4;\n"
   result += "LDA 0;\nJMP .relative_3;\n"
   result += "LDA 1;\n"
