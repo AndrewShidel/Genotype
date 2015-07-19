@@ -28,18 +28,21 @@ RAM::RAM()
 string RAM::toC() {
     ostringstream s;
     s << "#include <stdio.h>\n";
+    s << "#include <stdlib.h>\n";
     s << "int main() {\n";
-    s << "int m[" << memory.size() << "] = {";
+    s << "int *m = malloc(" << memory.size() << " * sizeof(int));";
     for (int i=0; i<memory.size(); i++) {
-        s << memory[i] << ((i==memory.size()-1)?"":", ");
+        s << "m[" << i << "]=" << memory[i]<<";";
     }
-    s << "};\n";
+    s << "\nmemSize = " << memory.size() << ";\n";
     s << "int ac=0;\n";
 
     vector<int> labels = vector<int>();
     for (int i=0; i<program.size(); i++) {
         if (program[i].opcode == JMP || program[i].opcode == JMN || program[i].opcode == JMZ) {
             labels.push_back(program[i].operand);
+        }else if (program[i].opcode == JAL) {
+            labels.push_back(memory[program[i].operand]);
         }
     }
 
@@ -105,23 +108,18 @@ string RAM::toC() {
                 break;
             case ALC: //Push
                 x = program[i].operand;
-                ac = memory.size();
-                //memory.resize(memory.size()+x, 0);
-                memory.push_back(memory[x]);
-                pc++;
+                s << "memSize++;\n";
+                s << "m = realloc(m, memSize*sizeof(int));\n";
+                s << "m[memSize-1] = m[" << x << "];\n";
                 break;
             case DLC: { //Pop
                 x = program[i].operand;
-                //vector<int>::iterator itEnd = memory.end();
-                //memory.erase(itEnd+x, itEnd);
-                memory[x] = memory.back();
-                memory.pop_back();
-                pc++;
+                s << "m[" << x << "] = m[--memSize];\n";
+                s << "m = realloc(m, memSize*sizeof(int));\n";
                 break;
             }
             case SYS: {
                 x = program[i].operand;
-
                 s << "if (ac==1){printf(\"%d\\n\", m[" << x << "]);}\n";
                 break;
             }
@@ -131,6 +129,7 @@ string RAM::toC() {
         }
     }
     s << "}";
+    return s.str();
 }
 
 // Initialize RAM with hardwired program and memory
@@ -286,7 +285,7 @@ void RAM::init(const char *file) {
     }
     pc = 0;
     ac = 0;
-    cout << toC();
+    //cout << toC();
 }
 
 // simulate execution of RAM with given program and memory configuration.
