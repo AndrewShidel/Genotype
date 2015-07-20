@@ -10,12 +10,13 @@ symbols = {}
 lambdas = {}
 staticMemory = memory.StaticMemory()
 symCount = 0
+argBase = 3
 
 alphabet = "abcdefghijklmnopqrstuvwxyz_"
 
 def main(argv=sys.argv):
-  parser = argparse.ArgumentParser(description='Simple programming language')
-  parser.add_argument('-f', dest='file', action='store', help='sum the integers (default: find the max)')
+  parser = argparse.ArgumentParser(description='DNA programming language')
+  parser.add_argument('-f', dest='file', action='store', help='Name of the file to compile')
 
   args = parser.parse_args()
   f = open(args.file, 'r')
@@ -58,8 +59,9 @@ def compile(progArr):
 def compileExpression(expArr, scope="", lineNum=0, quoted=False):
   global symCount, staticMemory, symbols, lambdas
 
-  if (expArr[0] == "lambda"):
-    return processlambda(str(len(lambdas)), expArr[1], expArr[2])
+
+  if (expArr[0] == "array"):
+    return processArray(expArr[1])
 
   asm = ""
   innerASM = []
@@ -147,7 +149,7 @@ def processFunction(name, args, body):
   
   for i in range(0, len(args)):
     args[i] = namespace + args[i]
-    symbols[args[i]] = 3+i;
+    symbols[args[i]] = argBase+i;
     #symbols[args[i]] = staticMemory.malloc(1)
   
   lambdas[name]["args"] = args;
@@ -173,14 +175,15 @@ def goToFunction(symName, args, inFunction=False):
 
   for i in range(0, len(args)):
     
-    asm += "ALC " + str(3+i) + ";\n"
+    asm += "ALC " + str(argBase+i) + ";\n"
     asm += "LDA " + str(symbols[args[i]]) + ";\n";
-    asm += "STA " + str(i+3) + ";\n"
+    asm += "STA " + str(i+argBase) + ";\n"
+
 
   asm += "JAL " + str(loc) + ";\n"
 
   for i in range(0, len(args)):
-    asm += "DLC " + str(3+i) + ";\n"
+    asm += "DLC " + str(argBase+i) + ";\n"
   return asm
 
 def processlambda(name, args, body):
@@ -226,6 +229,12 @@ def gotoLambda(symName, args):
     asm += "STA " + str(symbols[prefix + str(i)]) + ";\n" # Store the symbol as the argument
   return asm + "JAL " + staticMemory.get(symbols[symName]) + ";\n"
 
+def processArray(data):
+  loc = staticMemory.malloc(len(data)+1)
+  for i in range(0, len(data)):
+    staticMemory.set(i+loc, data[i])
+  staticMemory.set(len(data), '\0')
+  return "LDA " + loc + ";\n"
 
 def ifBlock(cond, trueBlock, falseBlock, lineNum):
   result = ""
@@ -251,6 +260,7 @@ def ifBlock(cond, trueBlock, falseBlock, lineNum):
   result += trueBlock
   result += falseBlock
   return result
+
 
 # Arithmetic Operations:
 # num1, num2 - memory locations
