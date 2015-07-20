@@ -7,6 +7,7 @@
 #include <string>
 #include <sstream>
 #include <vector>
+#include <map>
 #include <stack>
 #include "ram.h"
 #include "inst.h"
@@ -30,28 +31,37 @@ string RAM::toC() {
     s << "#include <stdio.h>\n";
     s << "#include <stdlib.h>\n";
     s << "int main() {\n";
-    s << "int *m = malloc(" << memory.size() << " * sizeof(int));";
+    s << "int *m = malloc(" << memory.size() << " * sizeof(int));\n";
     for (int i=0; i<memory.size(); i++) {
         s << "m[" << i << "]=" << memory[i]<<";";
     }
-    s << "\nmemSize = " << memory.size() << ";\n";
+    s << "\nint memSize = " << memory.size() << ";\n";
     s << "int ac=0;\n";
+    s << "short *callStack = malloc(1000 * sizeof(short));\n";
+    s << "short stackPointer = 0;\n";
+    s << "int superstructurePointer = 0;\n";
 
     vector<int> labels = vector<int>();
+    bool usesJAL = false;
     for (int i=0; i<program.size(); i++) {
         if (program[i].opcode == JMP || program[i].opcode == JMN || program[i].opcode == JMZ) {
             labels.push_back(program[i].operand);
-        }else if (program[i].opcode == JAL) {
-            labels.push_back(memory[program[i].operand]);
+        } else if (program[i].opcode == JAL) {
+            usesJAL = true;
         }
     }
 
 
     for (int i=0; i<program.size(); i++) {
         int x = 0;
-        if (binary_search (labels.begin(), labels.end(), i)) {
+        if (usesJAL) {
             s << "label" << i << ":\n";
+        } else {
+            if (binary_search (labels.begin(), labels.end(), i)) {
+                s << "label" << i << ":\n";
+            }
         }
+        
         switch (program[i].opcode) {
             case LDA:
                 x = program[i].operand;
@@ -98,6 +108,15 @@ string RAM::toC() {
                 break;
             case JAL:
                 x = program[i].operand;
+                if (x>0) {
+                    s << "callStack[++stackPointer] = " << i+1 << ";\n";
+                    s << "superstructurePointer = " << x << ";\n";
+                    s << "goto superstructure;\n";
+                } else {
+                    s << "superstructurePointer = callStack[stackPointer];\n";
+                    s << "stackPointer--;\n";
+                    s << "goto superstructure;\n";
+                }
                 /*if (x>0) {
                     callStack.push(pc);
                     pc = memory[x]-1;
@@ -127,6 +146,16 @@ string RAM::toC() {
                 s << "return 0;\n";
                 break;
         }
+    }
+    if (usesJAL) {
+        s << "return 0;\n";
+        s << "superstructure:\n";
+        s << "switch(m[superstructurePointer]) {\n";
+        for (int i=0; i<program.size(); i++) {
+            s << "case " << i << ":\n";
+            s << "  goto label" << i << ";\n";
+        }
+        s << "}\n";
     }
     s << "}";
     return s.str();
@@ -285,7 +314,7 @@ void RAM::init(const char *file) {
     }
     pc = 0;
     ac = 0;
-    //cout << toC();
+    cout << toC();
 }
 
 // simulate execution of RAM with given program and memory configuration.
