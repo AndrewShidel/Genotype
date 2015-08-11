@@ -22,10 +22,9 @@ shift $((OPTIND-1))
 
 [ "$1" = "--" ] && shift
 
-if [ "$cpath" == "" ] && [ $run -eq 0 ]
+if [ "$cpath" == "" ] && [ "$asm" == "" ] && [ $run -eq 0 ]
 then
 	cpath=`echo $1| cut -d'.' -f 1`
-	echo "$cpath"
 fi
 
 

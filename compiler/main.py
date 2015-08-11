@@ -39,9 +39,10 @@ def main(argv=sys.argv):
     output = process.communicate()[0]
     print(output)
   else:
-    f = open(args.output, 'w')
-    f.write(asm)
-    f.close()
+    if (args.output != ''):
+      f = open(args.output, 'w')
+      f.write(asm)
+      f.close()
     print(asm)
 
 def compile(progArr):
