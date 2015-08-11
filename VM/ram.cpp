@@ -26,7 +26,7 @@ RAM::RAM()
      }*/
 }
 
-string RAM::toC() {
+string RAM::toC(string path) {
     ostringstream s;
     s << "#include <stdio.h>\n";
     s << "#include <stdlib.h>\n";
@@ -158,6 +158,9 @@ string RAM::toC() {
         s << "}\n";
     }
     s << "}";
+    ofstream file(path.c_str());
+    file << s.str();
+    file.close();
     return s.str();
 }
 
@@ -194,25 +197,24 @@ void RAM::init()
 // and initial memory configuration in the file with name mInput
 // pc is set to 1 and ac is set to 0.  programSize is set to the number
 // of instructions read.
-void RAM::init(const char *file) {
+void RAM::init(/*const char *file*/ istream *mFile) {
     string str;
     int addr = 1;
     
-    
+    //istream *mFile = *file;
     // Initialize memory
-    ifstream mFile(file);
-    if (!mFile) {
+    //ifstream *mFile(file);
+    /*if (!*mFile) {
         cerr << "Error: program file not found" << endl;
         exit(1);
-    }
+    }*/
     
     // Initialize program
     string instName;
     bool inMemory = false;
-    bool inStr = false;
     pc = 0;
     int line = 0;
-    while (mFile >> instName) {
+    while (*mFile >> instName) {
         if (!inMemory) {
             program.push_back(*((Instruction*)malloc(sizeof(Instruction))));
         }
@@ -221,7 +223,7 @@ void RAM::init(const char *file) {
         //instName = str;
         if (inMemory) {
             if (instName[0]=='\"' || instName[0]=='\'') {
-                getline(mFile, str, '\n');
+                getline(*mFile, str, '\n');
                 instName += str;
                 for (int i=1; i<instName.length()-1; i++) {
                     if (instName[i]=='\"' || instName[i]=='\'') {
@@ -244,77 +246,76 @@ void RAM::init(const char *file) {
                     }
                 }
                 memory.push_back(value);
-                getline(mFile, str, '\n');  // flush line (possibly contains comment)
+                getline(*mFile, str, '\n');  // flush line (possibly contains comment)
             }
             addr++;
         }else if (instName[0] == ';') {
-            getline(mFile, str, '\n'); } // flush to end of line
+            getline(*mFile, str, '\n'); } // flush to end of line
         else if (instName == "&") {
             inMemory = true; }
         else if (instName == "LDA") {
             program[pc].opcode = LDA;
-            mFile >> program[pc].operand; 
-            getline(mFile, str, '\n');  pc++; }
+            *mFile >> program[pc].operand; 
+            getline(*mFile, str, '\n');  pc++; }
         else if (instName == "LDI") {
             program[pc].opcode = LDI;
-            mFile >> program[pc].operand; 
-            getline(mFile, str, '\n');  pc++; }
+            *mFile >> program[pc].operand; 
+            getline(*mFile, str, '\n');  pc++; }
         else if (instName == "STA") {
             program[pc].opcode = STA;
-            mFile >> program[pc].operand; 
-            getline(mFile, str, '\n');  pc++; }
+            *mFile >> program[pc].operand; 
+            getline(*mFile, str, '\n');  pc++; }
         else if (instName == "STI") {
             program[pc].opcode = STI;
-            mFile >> program[pc].operand; 
-            getline(mFile, str, '\n');  pc++; }
+            *mFile >> program[pc].operand; 
+            getline(*mFile, str, '\n');  pc++; }
         else if (instName == "ADD") {
             program[pc].opcode = ADD;
-            mFile >> program[pc].operand; 
-            getline(mFile, str, '\n');  pc++; }
+            *mFile >> program[pc].operand; 
+            getline(*mFile, str, '\n');  pc++; }
         else if (instName == "SUB") {
             program[pc].opcode = SUB;
-            mFile >> program[pc].operand; 
-            getline(mFile, str, '\n');  pc++; }
+            *mFile >> program[pc].operand; 
+            getline(*mFile, str, '\n');  pc++; }
         else if (instName == "JMP") {
             program[pc].opcode = JMP;
-            mFile >> program[pc].operand; 
+            *mFile >> program[pc].operand; 
             program[pc].operand--;
-            getline(mFile, str, '\n');  pc++; }
+            getline(*mFile, str, '\n');  pc++; }
         else if (instName == "JMZ") {
             program[pc].opcode = JMZ;
-            mFile >> program[pc].operand; 
+            *mFile >> program[pc].operand; 
             program[pc].operand--;
-            getline(mFile, str, '\n');  pc++; }
+            getline(*mFile, str, '\n');  pc++; }
         else if (instName == "JMN") {
             program[pc].opcode = JMN;
-            mFile >> program[pc].operand; 
+            *mFile >> program[pc].operand; 
             program[pc].operand--;
-            getline(mFile, str, '\n');  pc++; }
+            getline(*mFile, str, '\n');  pc++; }
         else if (instName == "JAL") {
             program[pc].opcode = JAL;
-            mFile >> program[pc].operand;
-            getline(mFile, str, '\n');  pc++; }
+            *mFile >> program[pc].operand;
+            getline(*mFile, str, '\n');  pc++; }
         else if (instName == "ALC") {
             program[pc].opcode = ALC;
-            mFile >> program[pc].operand; 
-            getline(mFile, str, '\n');  pc++; }
+            *mFile >> program[pc].operand; 
+            getline(*mFile, str, '\n');  pc++; }
         else if (instName == "DLC") {
             program[pc].opcode = DLC;
-            mFile >> program[pc].operand; 
-            getline(mFile, str, '\n');  pc++; }
+            *mFile >> program[pc].operand; 
+            getline(*mFile, str, '\n');  pc++; }
         else if (instName == "SYS") {
             program[pc].opcode = SYS;
-            mFile >> program[pc].operand;
-            getline(mFile, str, '\n');  pc++; }
+            *mFile >> program[pc].operand;
+            getline(*mFile, str, '\n');  pc++; }
         else if (instName == "HLT") {
             program[pc].opcode = HLT;
-            getline(mFile, str, '\n');  pc++; }
+            getline(*mFile, str, '\n');  pc++; }
         else { cerr << "Error:  Illegal Instruction " << instName << " one line " << line << "\n";
             exit(1); }
     }
     pc = 0;
     ac = 0;
-    cout << toC();
 }
 
 // simulate execution of RAM with given program and memory configuration.

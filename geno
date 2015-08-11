@@ -1,0 +1,44 @@
+#! /bin/bash
+
+OPTIND=1
+
+# Initialize our own variables:
+cpath=""
+asm=""
+run=0
+
+while getopts "c:ra:" opt; do
+    case "$opt" in
+    c)  cpath=$OPTARG
+        ;;
+    r)  run=1
+        ;;
+	a)  asm=$OPTARG
+        ;;
+    esac
+done
+
+shift $((OPTIND-1))
+
+[ "$1" = "--" ] && shift
+
+if [ "$cpath" == "" ] && [ $run -eq 0 ]
+then
+	cpath=`echo $1| cut -d'.' -f 1`
+	echo "$cpath"
+fi
+
+
+if [ $run -eq 0 ]
+then
+	python3 compiler/main.py -f "$1" -o "$asm" | ./VM/main.out -c "$cpath"
+else
+	python3 compiler/main.py -f "$1" -o "$asm" | ./VM/main.out -r -c "$cpath"
+fi
+
+if [ "$cpath" != "" ] && [ ${cpath: -2} != ".c" ]
+then
+  cp "$cpath" "/tmp/$cpath.c"
+  rm -f "$cpath"
+  gcc -o "$cpath" "/tmp/$cpath.c"
+fi

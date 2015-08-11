@@ -17,11 +17,32 @@ alphabet = "abcdefghijklmnopqrstuvwxyz_"
 def main(argv=sys.argv):
   parser = argparse.ArgumentParser(description='DNA programming language')
   parser.add_argument('-f', dest='file', action='store', help='Name of the file to compile')
+  parser.add_argument('-o', dest='output', action='store', help='Name of the output file')
+  parser.add_argument('-r', dest='run', action='store_true', help='Run the code.')
+
 
   args = parser.parse_args()
   f = open(args.file, 'r')
   progArr = parse(f)
-  compile(progArr)
+  asm = compile(progArr)
+
+  if (args.run):
+    import subprocess
+    import time
+    filename = "/tmp/geno_" + str(int(round(time.time() * 1000))) + ".asm"
+    f = open(filename, 'w')
+    f.write(asm)
+    f.close()
+    command = "../VM/main.out -f " + filename
+    process = subprocess.Popen(command.split(), stdout=subprocess.PIPE)
+    #print(str(process.stdout.read()))
+    output = process.communicate()[0]
+    print(output)
+  else:
+    f = open(args.output, 'w')
+    f.write(asm)
+    f.close()
+    print(asm)
 
 def compile(progArr):
   asm = ""
@@ -52,7 +73,7 @@ def compile(progArr):
 
   asm+="&\n"
   asm += memoryStr
-  print (asm)
+  return asm
 
 
 
