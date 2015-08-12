@@ -140,6 +140,7 @@ string RAM::toC(string path) {
             case SYS: {
                 x = program[i].operand;
                 s << "if (ac==1){printf(\"%d\\n\", m[" << x << "]);}\n";
+                s << "else if (ac==0){int* data=&m[" << x << "];while(*data !='\\0'){printf(\"%c\",(char)*data); ++data;}}\n";
                 break;
             }
             case HLT:
