@@ -82,8 +82,8 @@ def compileExpression(expArr, scope="", lineNum=0, quoted=False):
   global symCount, staticMemory, symbols, lambdas
 
 
-  if (expArr[0] == "array"):
-    return processArray(expArr[1])
+  #if (expArr[0] == "arr"):
+  #  return processArray(expArr[1])
 
   asm = ""
   innerASM = []
@@ -97,9 +97,12 @@ def compileExpression(expArr, scope="", lineNum=0, quoted=False):
       if (expArr[0] == "if"):
         continue
 
-      result = ""      
+      result = ""
+      arrLocation = -1
       if (expArr[0] == "let" and isinstance(expArr[1], list)):
         break
+      elif (expArr[i][0] == "arr"):
+        (result, arrLocation) = processArray(expArr[i][1])
       else:
         result=compileExpression(expArr[i], scope, lineNum=(lineNum+asm.count("\n")))
 
@@ -109,9 +112,15 @@ def compileExpression(expArr, scope="", lineNum=0, quoted=False):
         staticMemory.set(loc, result[1])
         symbols[expArr[1]] = result[1]
       else:
+        if(arrLocation > -1):
+          staticMemory.set(loc, arrLocation)
         asm += result
         asm += "STA " + str(loc) + ";\n"
       expArr[i] = "__" + str(symCount)
+      
+      if(arrLocation > -1):
+        expArr[i] = "arr"+expArr[i]
+
       symbols[expArr[i]] = loc
       symCount += 1
     else: # Compile a symbol
@@ -252,11 +261,12 @@ def gotoLambda(symName, args):
   return asm + "JAL " + staticMemory.get(symbols[symName]) + ";\n"
 
 def processArray(data):
-  loc = staticMemory.malloc(len(data)+1)
+  loc = staticMemory.malloc(len(data)+2)
+  staticMemory.set(loc, '\1')
   for i in range(0, len(data)):
-    staticMemory.set(i+loc, data[i])
-  staticMemory.set(len(data), '\0')
-  return "LDA " + loc + ";\n"
+    staticMemory.set(i+loc+1, data[i])
+  staticMemory.set(loc+len(data)+1, '\0')
+  return ("LDA " + str(loc) + ";\n", loc)
 
 def ifBlock(cond, trueBlock, falseBlock, lineNum):
   result = ""
@@ -350,8 +360,13 @@ def andExp(exp1, exp2):
 
 
 def printInt(num):
-  result = "LDA 1;\n"
-  result += "SYS " + str(symbols[num]) + ";\n"
+  if (num[:3] == "arr"):
+    result = "LDA 0;\n"
+    result += "SYS " + str(staticMemory.get(symbols[num])) + ";\n"
+  else:
+    result = "LDA 1;\n"
+    result += "SYS " + str(symbols[num]) + ";\n"
+
   return result
 
 # allocates memory for a symbol and returns instructions for placing a int into that memory
@@ -412,6 +427,13 @@ def parse(f):
       result += "]"
       if (paranCount==0):
         result += ","
+    elif (c=='"' or c=="'"):
+      c = f.read(1)
+      result += "[\"arr\", ["
+      while c!='"' and c!="'":
+        result += "\"" + c + "\","
+        c = f.read(1)
+      result = result[:len(result)-1] + "]]"
     elif (c.isspace() and paranCount>0):
       if (inSymbolName):
         result += "\""

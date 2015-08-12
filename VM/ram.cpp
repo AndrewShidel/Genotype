@@ -222,14 +222,14 @@ void RAM::init(/*const char *file*/ istream *mFile) {
         line++;
         //instName = str;
         if (inMemory) {
-            if (instName[0]=='\"' || instName[0]=='\'') {
+            if (instName[0]=='\"' || instName[0]=='\'' || instName[0]=='\1') {
                 getline(*mFile, str, '\n');
-                instName += str;
-                for (int i=1; i<instName.length()-1; i++) {
-                    if (instName[i]=='\"' || instName[i]=='\'') {
+                //instName += str;
+                while(getline(*mFile, str, '\n')) {
+                    if (str[0]=='\"' || str[0]=='\'' || str[0]=='\0') {
                         break;
                     }
-                    memory.push_back(instName[i]);
+                    memory.push_back(str[0]);
                     addr++;
                 }
                 memory.push_back('\0');
