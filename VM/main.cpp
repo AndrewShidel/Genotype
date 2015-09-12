@@ -1,8 +1,3 @@
-// RAM interpreter
-// Purpose: To simulate the execution of a RAM (random access machine)
-// Author: Jeremy Johnson
-// Date: 9/25/00
-
 #include <iostream>
 #include <string>
 #include <fstream>
@@ -16,12 +11,9 @@ int main(int argc, char** argv)
 	string cPath = "";
 	bool usingPipe = true;
 	bool run = false;
-	/*fName = argv[2];
+
 	for (int i=1; i<argc; i++) {
-		cout << argv[i] << "\n";
-	}*/
-	for (int i=1; i<argc; i++) {
-		if (strcmp(argv[i],"-f")==0) { //Instructions
+		if (strcmp(argv[i],"-f")==0) {
 			fName = argv[++i];
 			usingPipe = false;
 		} else if (strcmp(argv[i],"-c")==0) {
