@@ -146,6 +146,8 @@ string RAM::toC(string path) {
             case HLT:
                 s << "return 0;\n";
                 break;
+            case NOP:
+                break;
         }
     }
     if (usesJAL) {
@@ -312,6 +314,9 @@ void RAM::init(/*const char *file*/ istream *mFile) {
         else if (instName == "HLT") {
             program[pc].opcode = HLT;
             getline(*mFile, str, '\n');  pc++; }
+        else if (instName == "NOP") {
+            program[pc].opcode = NOP;
+            getline(*mFile, str, '\n');  pc++; }
         else { cerr << "Error:  Illegal Instruction " << instName << " one line " << line << "\n";
             exit(1); }
     }
@@ -427,6 +432,8 @@ void RAM::execute() {
             case HLT:
                 pc = size;
                 break;
+            case NOP:
+                break;
         }
     }
 }
@@ -440,8 +447,8 @@ void RAM::printString(int memBase) {
     cout << '\n';
 }
 
-RAM* RAM::fork() {
-    return new RAM(*this);
+RAM RAM::fork() {
+    return RAM(*this);
 }
 
 string RAM::toString() {
